@@ -23,7 +23,7 @@ type Config struct{
 }
 
 func main() {
-	log.Println("Starting authentication service")
+	// log.Println("Starting authentication service")
 
 	//connect to db
 	conn := connectToDB()
