@@ -1,12 +1,18 @@
 package main
 
 import (
+	"authentication/events"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 )
+
+type LogPayload struct{
+	Name string `json:"name"`
+	Data string `json:"data"`
+}
 
 func (app *Config) Auth(w http.ResponseWriter, r *http.Request) {
 	var requestPayload struct{
@@ -34,7 +40,14 @@ func (app *Config) Auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//log auth
-	err = app.logRequest("authentication", fmt.Sprintf("%s logged in", user.Email))
+	// err = app.logRequest("authentication", fmt.Sprintf("%s logged in", user.Email))
+	// if err != nil {
+	// 	app.errorJson(w, err)
+	// 	return
+	// }
+
+	//log auth using rabbitMQ
+	err = app.logRequestViaRabbitMQ(w,"authentication", fmt.Sprintf("%s logged in via RabbitMQ", user.Email))
 	if err != nil {
 		app.errorJson(w, err)
 		return
@@ -47,6 +60,43 @@ func (app *Config) Auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *Config) logRequestViaRabbitMQ(w http.ResponseWriter, name string, message string) error {
+	err := app.pushToQueue(name,message)
+	
+	if err != nil {
+		// app.errorJson(w, err)
+		return err
+	}
+
+	return nil
+
+	// var payload JsonResponse
+	// payload.Error = false
+	// payload.Message = "Auth via RabbitMQ"
+
+	// app.writeJSON(w, http.StatusAccepted, payload)
+}
+
+func (app *Config) pushToQueue(name string, message string) error {
+	emitter, err := events.NewEvenEmitter(app.Rabbit)
+	if err != nil {
+		return err
+	}
+
+	payload := LogPayload{
+		Name: name,
+		Data: message,
+	}
+
+	j, _ := json.MarshalIndent(&payload, "", "\t")
+	err = emitter.Push(string(j), "log.INFO")
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func (app *Config) logRequest(name , data string) error {

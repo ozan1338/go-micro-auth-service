@@ -16,6 +16,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20200714003250-2b9c44734f2b // indirect
 	github.com/jackc/pgtype v1.12.0 // indirect
 	github.com/jackc/pgx/v4 v4.17.2 // indirect
+	github.com/rabbitmq/amqp091-go v1.5.0 // indirect
 	github.com/tsawler/toolbox v1.1.7 // indirect
 	golang.org/x/text v0.3.7 // indirect
 )
