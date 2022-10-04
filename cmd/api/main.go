@@ -20,22 +20,26 @@ import (
 const webPort = "80"
 var counts int64
 
+// type Config struct{
+// 	Repo data.Repository
+// 	Rabbit *amqp.Connection
+// }
+
 type Config struct{
-	DB *sql.DB
-	Models data.Models
-	Rabbit *amqp.Connection
+	Repo data.Repository
+	Client *http.Client
 }
 
 func main() {
 	// connect to rabbitMQ
-	rabbitConn,err := connectToRabbitMQ()
-	if err != nil {
-		log.Println(err)
-		os.Exit(1)
-	}
+	// rabbitConn,err := connectToRabbitMQ()
+	// if err != nil {
+	// 	log.Println(err)
+	// 	os.Exit(1)
+	// }
 
-	defer rabbitConn.Close()
-	log.Println("connected to RabbitMQ")
+	// defer rabbitConn.Close()
+	// log.Println("connected to RabbitMQ")
 
 	//connect to db
 	conn := connectToDB()
@@ -44,10 +48,12 @@ func main() {
 	}
 
 	//set up config
+	// app := Config{
+	// 	Rabbit: rabbitConn,
+	// }
+
 	app := Config{
-		DB: conn,
-		Models: data.New(conn),
-		Rabbit: rabbitConn,
+		Client: &http.Client{},
 	}
 
 	//define http server
@@ -59,7 +65,7 @@ func main() {
 	log.Printf("Starting authentication service at port %s", webPort)
 
 	//start the server
-	err = srv.ListenAndServe()
+	err := srv.ListenAndServe()
 	if err != nil {
 		log.Panic(err)
 	}
@@ -132,4 +138,9 @@ func connectToRabbitMQ() (*amqp.Connection, error) {
 	}
 
 	return connection, nil
+}
+
+func (app *Config) SetupRepo(conn *sql.DB) {
+	db := data.NewPostgresRepository(conn)
+	app.Repo = db
 }

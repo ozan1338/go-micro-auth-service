@@ -1,7 +1,6 @@
 package main
 
 import (
-	"authentication/events"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -27,31 +26,31 @@ func (app *Config) Auth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//validate the user against the database
-	user, err := app.Models.User.GetByEmail(requestPayload.Email)
+	user, err := app.Repo.GetByEmail(requestPayload.Email)
 	if err != nil {
 		app.errorJson(w, errors.New("invalid email"), http.StatusBadRequest)
 		return
 	}
 
-	valid, err := user.PasswordMatches(requestPayload.Password)
+	valid, err := app.Repo.PasswordMatches(requestPayload.Password, *user)
 	if err != nil || !valid {
 		app.errorJson(w, errors.New("invalid credentials"), http.StatusBadRequest)
 		return
 	}
 
 	//log auth
-	// err = app.logRequest("authentication", fmt.Sprintf("%s logged in", user.Email))
-	// if err != nil {
-	// 	app.errorJson(w, err)
-	// 	return
-	// }
-
-	//log auth using rabbitMQ
-	err = app.logRequestViaRabbitMQ(w,"authentication", fmt.Sprintf("%s logged in via RabbitMQ", user.Email))
+	err = app.logRequest("authentication", fmt.Sprintf("%s logged in", user.Email))
 	if err != nil {
 		app.errorJson(w, err)
 		return
 	}
+
+	//log auth using rabbitMQ
+	// err = app.logRequestViaRabbitMQ(w,"authentication", fmt.Sprintf("%s logged in via RabbitMQ", user.Email))
+	// if err != nil {
+	// 	app.errorJson(w, err)
+	// 	return
+	// }
 
 	payload := JsonResponse{
 		Error: false,
@@ -62,42 +61,42 @@ func (app *Config) Auth(w http.ResponseWriter, r *http.Request) {
 	app.writeJSON(w, http.StatusAccepted, payload)
 }
 
-func (app *Config) logRequestViaRabbitMQ(w http.ResponseWriter, name string, message string) error {
-	err := app.pushToQueue(name,message)
+// func (app *Config) logRequestViaRabbitMQ(w http.ResponseWriter, name string, message string) error {
+// 	err := app.pushToQueue(name,message)
 	
-	if err != nil {
-		// app.errorJson(w, err)
-		return err
-	}
+// 	if err != nil {
+// 		// app.errorJson(w, err)
+// 		return err
+// 	}
 
-	return nil
+// 	return nil
 
-	// var payload JsonResponse
-	// payload.Error = false
-	// payload.Message = "Auth via RabbitMQ"
+// 	// var payload JsonResponse
+// 	// payload.Error = false
+// 	// payload.Message = "Auth via RabbitMQ"
 
-	// app.writeJSON(w, http.StatusAccepted, payload)
-}
+// 	// app.writeJSON(w, http.StatusAccepted, payload)
+// }
 
-func (app *Config) pushToQueue(name string, message string) error {
-	emitter, err := events.NewEvenEmitter(app.Rabbit)
-	if err != nil {
-		return err
-	}
+// func (app *Config) pushToQueue(name string, message string) error {
+// 	emitter, err := events.NewEvenEmitter(app.Rabbit)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	payload := LogPayload{
-		Name: name,
-		Data: message,
-	}
+// 	payload := LogPayload{
+// 		Name: name,
+// 		Data: message,
+// 	}
 
-	j, _ := json.MarshalIndent(&payload, "", "\t")
-	err = emitter.Push(string(j), "log.INFO")
-	if err != nil {
-		return err
-	}
+// 	j, _ := json.MarshalIndent(&payload, "", "\t")
+// 	err = emitter.Push(string(j), "log.INFO")
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return err
-}
+// 	return err
+// }
 
 func (app *Config) logRequest(name , data string) error {
 	var entry struct{
@@ -116,9 +115,9 @@ func (app *Config) logRequest(name , data string) error {
 		return err
 	}
 
-	client := http.Client{}
+	// client := http.Client{}
 
-	_,err = client.Do(request)
+	_,err = app.Client.Do(request)
 	if err != nil {
 		return err
 	}
